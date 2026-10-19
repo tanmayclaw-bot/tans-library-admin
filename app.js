@@ -129,7 +129,7 @@ function booksView() {
         el('div', { class: 'cov', style: 'background-image:' + cssUrl(d.cover) }),
         el('div', { class: 'grow' }, [
           el('div', { class: 't', text: d.title || '(untitled)' }),
-          el('div', { class: 's', text: (d.author || '') + (d.year ? ' · ' + d.year : '') + (d.pages ? ' · ' + d.pages + 'p' : '') + (+d.rating ? ' · ' + '\u2605'.repeat(Math.floor(+d.rating)) + ((+d.rating % 1) >= 0.5 ? '\u00bd' : '') : '') + (d.finished ? ' · read ' + d.finished : '') }),
+          el('div', { class: 's', text: (d.author || '') + (d.year ? ' · ' + d.year : '') + (d.pages ? ' · ' + d.pages + 'p' : '') + (+d.rating ? ' · ' + '\u2605'.repeat(Math.floor(+d.rating)) + ((+d.rating % 1) >= 0.5 ? '\u00bd' : '') : '') + (d.finished ? ' · read ' + d.finished : '') + (d.suggestedBy ? ' · suggested by ' + d.suggestedBy + (d.suggestedOn ? ' on ' + d.suggestedOn : '') : '') }),
           el('div', {}, [(d.genres || []).map(function (g) { return el('span', { class: 'tag', text: g }); }), b.hidden ? el('span', { class: 'tag bad', text: 'hidden' }) : null, b.featured ? el('span', { class: 'tag ok', text: 'featured' }) : null].flat())
         ])
       ]),
@@ -201,7 +201,7 @@ function editView() {
   var g2 = el('div', { class: 'grid2' }); box.appendChild(g2);
   var pg = el('input', { type: 'number', min: 1, max: 5000, value: d.pages || '' }), yr = el('input', { type: 'number', min: 1, max: 2100, value: d.year || '' });
   g2.appendChild(el('div', {}, [el('label', { text: 'Pages' }), pg])); g2.appendChild(el('div', {}, [el('label', { text: 'Year' }), yr]));
-  field('Publisher', 'publisher', 'text', 80); field('Blurb', 'blurb', 'textarea', 400);
+  field('Publisher', 'publisher', 'text', 80); field('Suggested by (credit shown on site, clear to remove)', 'suggestedBy', 'text', 40); field('Blurb', 'blurb', 'textarea', 400);
   var g3 = el('div', { class: 'grid2' }); box.appendChild(g3);
   var rd = el('input', { type: 'date', max: '2100-12-31', value: /^\d{4}-\d{2}-\d{2}$/.test(d.finished || '') ? d.finished : '' });
   var rt = el('select', {}, [0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5].map(function (n) { return el('option', { value: String(n), text: n ? n + ' / 5' : 'Unrated' }); }));
@@ -233,7 +233,7 @@ function editView() {
     var cover = cov.value.trim(); if (cover && !safeUrl(cover)) return toast('Cover must be an https link');
     var genres = f.genres.value.split(',').map(function (x) { return x.trim().slice(0, 30); }).filter(Boolean);
     if (tr.checked && genres.indexOf('To read') < 0) genres.push('To read');
-    var nd = Object.assign({}, d, { id: row.id, title: title.slice(0, 200), author: f.author.value.trim().slice(0, 200), genres: genres.slice(0, 6), year: +yr.value || '', pages: +pg.value || 0, publisher: f.publisher.value.trim().slice(0, 80), finished: /^\d{4}-\d{2}-\d{2}$/.test(rd.value) ? rd.value : '', rating: +rt.value || 0, blurb: f.blurb.value.trim().slice(0, 400), cover: cover });
+    var nd = Object.assign({}, d, { id: row.id, title: title.slice(0, 200), author: f.author.value.trim().slice(0, 200), genres: genres.slice(0, 6), year: +yr.value || '', pages: +pg.value || 0, publisher: f.publisher.value.trim().slice(0, 80), suggestedBy: f.suggestedBy.value.trim().slice(0, 40), suggestedOn: f.suggestedBy.value.trim() ? (d.suggestedOn || '') : '', finished: /^\d{4}-\d{2}-\d{2}$/.test(rd.value) ? rd.value : '', rating: +rt.value || 0, blurb: f.blurb.value.trim().slice(0, 400), cover: cover });
     var changed = S.editing.isNew || (+nd.pages !== +d.pages);
     Object.assign(nd, visuals(nd, S.editing.isNew), changed ? {} : { binding: d.binding, height: d.height, width: d.width });
     try {
@@ -302,7 +302,7 @@ function recsView() {
         el('div', { class: 'cov', style: 'background-image:' + cssUrl(r.cover) }),
         el('div', { class: 'grow' }, [
           el('div', { class: 't', text: r.title }), el('div', { class: 's', text: (r.author || '') + ' · from ' + r.recommender }),
-          el('div', { class: 's', text: new Date(r.created_at).toLocaleString() }),
+          el('div', { class: 's', text: 'Suggested ' + new Date(r.created_at).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) }),
           (r.year || r.pages || (r.extra && (r.extra.genres || []).length)) ? el('div', { class: 's', text: [r.year, r.pages ? r.pages + 'p' : '', r.extra && r.extra.publisher, r.extra && (r.extra.genres || []).join(', ')].filter(Boolean).join(' · ') }) : null,
           (r.extra && r.extra.blurb) ? el('div', { class: 's', text: r.extra.blurb }) : null,
           el('div', {}, [el('span', { class: 'tag ' + (st === 'approved' ? 'ok' : 'bad'), text: st === 'approved' ? 'live' : st === 'pending' ? 'held by filter' : 'hidden' })])
@@ -321,7 +321,7 @@ function recsView() {
 async function setRec(r, status) { try { await api('/rest/v1/recommendations?id=eq.' + r.id, { method: 'PATCH', headers: J, body: JSON.stringify({ status: status }) }); r.status = status; render(); } catch (e) { toast('Failed: ' + e.message); } }
 async function delRec(r) { try { await api('/rest/v1/recommendations?id=eq.' + r.id, { method: 'DELETE' }); S.recs = S.recs.filter(function (x) { return x.id !== r.id; }); render(); } catch (e) { toast('Failed: ' + e.message); } }
 function toShelf(r) {
-  var d = { id: 'b-' + crypto.randomUUID().slice(0, 8), title: r.title, author: r.author || '', genres: ['To read'].concat(((r.extra && r.extra.genres) || []).map(String).slice(0, 3)), cover: safeUrl(r.cover), year: r.year || '', pages: r.pages || 0, blurb: ((r.extra && r.extra.blurb) || r.note || '').slice(0, 400), rating: 0, finished: '', publisher: ((r.extra && r.extra.publisher) || '').slice(0, 80) };
+  var d = { id: 'b-' + crypto.randomUUID().slice(0, 8), title: r.title, author: r.author || '', genres: ['To read'].concat(((r.extra && r.extra.genres) || []).map(String).slice(0, 3)), cover: safeUrl(r.cover), year: r.year || '', pages: r.pages || 0, blurb: ((r.extra && r.extra.blurb) || r.note || '').slice(0, 400), suggestedBy: String(r.recommender || '').trim().slice(0, 40), suggestedOn: /^\d{4}-\d{2}-\d{2}/.test(r.created_at || '') ? r.created_at.slice(0, 10) : '', rating: 0, finished: '', publisher: ((r.extra && r.extra.publisher) || '').slice(0, 80) };
   S.editing = { isNew: true, row: { id: d.id, data: d, hidden: false, featured: false } }; S.tab = 'books'; render();
 }
 

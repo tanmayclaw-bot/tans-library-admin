@@ -129,7 +129,7 @@ function booksView() {
         el('div', { class: 'cov', style: 'background-image:' + cssUrl(d.cover) }),
         el('div', { class: 'grow' }, [
           el('div', { class: 't', text: d.title || '(untitled)' }),
-          el('div', { class: 's', text: (d.author || '') + (d.year ? ' · ' + d.year : '') + (d.pages ? ' · ' + d.pages + 'p' : '') }),
+          el('div', { class: 's', text: (d.author || '') + (d.year ? ' · ' + d.year : '') + (d.pages ? ' · ' + d.pages + 'p' : '') + (+d.rating ? ' · ' + '\u2605'.repeat(Math.round(+d.rating)) : '') + (d.finished ? ' · read ' + d.finished : '') }),
           el('div', {}, [(d.genres || []).map(function (g) { return el('span', { class: 'tag', text: g }); }), b.hidden ? el('span', { class: 'tag bad', text: 'hidden' }) : null, b.featured ? el('span', { class: 'tag ok', text: 'featured' }) : null].flat())
         ])
       ]),
@@ -202,6 +202,12 @@ function editView() {
   var pg = el('input', { type: 'number', min: 1, max: 5000, value: d.pages || '' }), yr = el('input', { type: 'number', min: 1, max: 2100, value: d.year || '' });
   g2.appendChild(el('div', {}, [el('label', { text: 'Pages' }), pg])); g2.appendChild(el('div', {}, [el('label', { text: 'Year' }), yr]));
   field('Publisher', 'publisher', 'text', 80); field('Blurb', 'blurb', 'textarea', 400);
+  var g3 = el('div', { class: 'grid2' }); box.appendChild(g3);
+  var rd = el('input', { type: 'date', max: '2100-12-31', value: /^\d{4}-\d{2}-\d{2}$/.test(d.finished || '') ? d.finished : '' });
+  var rt = el('select', {}, [0, 1, 2, 3, 4, 5].map(function (n) { return el('option', { value: String(n), text: n ? n + ' / 5' : 'Unrated' }); }));
+  rt.value = String(Math.max(0, Math.min(5, Math.round(+d.rating || 0))));
+  g3.appendChild(el('div', {}, [el('label', { text: 'Date read (optional)' }), rd]));
+  g3.appendChild(el('div', {}, [el('label', { text: 'Rating' }), rt]));
   var cov = field('Cover image URL (https)', 'cover', 'url', 400);
   var prev = el('div', { class: 'cov', style: 'width:70px;height:100px;margin-top:8px;background-image:' + cssUrl(d.cover) }); box.appendChild(prev);
   cov.addEventListener('input', function () { prev.style.backgroundImage = cssUrl(cov.value); });
@@ -227,7 +233,7 @@ function editView() {
     var cover = cov.value.trim(); if (cover && !safeUrl(cover)) return toast('Cover must be an https link');
     var genres = f.genres.value.split(',').map(function (x) { return x.trim().slice(0, 30); }).filter(Boolean);
     if (tr.checked && genres.indexOf('To read') < 0) genres.push('To read');
-    var nd = Object.assign({}, d, { id: row.id, title: title.slice(0, 200), author: f.author.value.trim().slice(0, 200), genres: genres.slice(0, 6), year: +yr.value || '', pages: +pg.value || 0, publisher: f.publisher.value.trim().slice(0, 80), blurb: f.blurb.value.trim().slice(0, 400), cover: cover });
+    var nd = Object.assign({}, d, { id: row.id, title: title.slice(0, 200), author: f.author.value.trim().slice(0, 200), genres: genres.slice(0, 6), year: +yr.value || '', pages: +pg.value || 0, publisher: f.publisher.value.trim().slice(0, 80), finished: /^\d{4}-\d{2}-\d{2}$/.test(rd.value) ? rd.value : '', rating: +rt.value || 0, blurb: f.blurb.value.trim().slice(0, 400), cover: cover });
     var changed = S.editing.isNew || (+nd.pages !== +d.pages);
     Object.assign(nd, visuals(nd, S.editing.isNew), changed ? {} : { binding: d.binding, height: d.height, width: d.width });
     try {
